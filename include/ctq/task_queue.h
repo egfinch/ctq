@@ -107,6 +107,11 @@ struct task_queue {
 		basic_->push(std::move(item));
 	}
 
+	template<typename... Args>
+	void emplace(Args&&... args) {
+		basic_->emplace(std::forward<Args>(args)...);
+	}
+
 private:
 	std::unique_ptr<basic_task_queue<queue>> basic_;
 };
@@ -141,6 +146,11 @@ struct task_queue<Container, T> {
 		basic_->push(std::move(item));
 	}
 
+	template<typename... Args>
+	void emplace(Args&&... args) {
+		basic_->emplace(std::forward<Args>(args)...);
+	}
+
 private:
 	std::unique_ptr<basic_task_queue<queue>> basic_;
 };
@@ -166,7 +176,7 @@ struct basic_task_queue {
 		for (size_t i = 0; i < workers; ++i) {
 			workers_.emplace_back([this](std::stop_token st) {
 				while (!st.stop_requested()) {
-					type item;
+					std::optional<type> item;
 					{
 						std::unique_lock lock(mutex_);
 						if (!cv_.wait(lock, st, [this]() { return !q_.empty(); })) {
@@ -178,7 +188,7 @@ struct basic_task_queue {
 							cv_.notify_all();
 						}
 					}
-					cb_(std::move(item));
+					cb_(std::move(*item));
 				}
 			});
 		}

@@ -352,6 +352,64 @@ TEST(TaskQueueTest, SingleTypeMultipleWorkers) {
 	EXPECT_EQ(counter.load(), 55); // Sum of 1 to 10
 }
 
+TEST(TaskQueueTest, SingleTypeEmplace) {
+	std::atomic<int> sum{0};
+
+	{
+		ctq::task_queue<std::vector, int> queue(
+			[&sum](int n) { sum += n; },
+			1 // 1 worker
+		);
+
+		queue.emplace(10);
+		queue.emplace(20);
+		queue.emplace(30);
+
+		std::this_thread::sleep_for(std::chrono::milliseconds(100));
+	}
+
+	EXPECT_EQ(sum.load(), 60);
+}
+
+TEST(TaskQueueTest, SingleTypeEmplaceWithComplexType) {
+	struct Message {
+		int id;
+		std::string content;
+
+		Message(int i, std::string c) : id(i), content(std::move(c)) {}
+	};
+
+	std::vector<int> ids;
+	std::vector<std::string> contents;
+	std::mutex results_mutex;
+
+	{
+		ctq::task_queue<std::vector, Message> queue(
+			[&ids, &contents, &results_mutex](Message msg) {
+				std::lock_guard<std::mutex> lock(results_mutex);
+				ids.push_back(msg.id);
+				contents.push_back(msg.content);
+			},
+			1
+		);
+
+		// Use emplace to construct Message in-place
+		queue.emplace(1, "first");
+		queue.emplace(2, "second");
+		queue.emplace(3, "third");
+
+		std::this_thread::sleep_for(std::chrono::milliseconds(100));
+	}
+
+	ASSERT_EQ(ids.size(), 3);
+	EXPECT_EQ(ids[0], 1);
+	EXPECT_EQ(ids[1], 2);
+	EXPECT_EQ(ids[2], 3);
+	EXPECT_EQ(contents[0], "first");
+	EXPECT_EQ(contents[1], "second");
+	EXPECT_EQ(contents[2], "third");
+}
+
 // ============================================================================
 // task_queue Tests (Multiple Types with Variant)
 // ============================================================================
@@ -482,6 +540,143 @@ TEST(TaskQueueTest, ComplexMultiTypeScenario) {
 	EXPECT_EQ(int_results.size(), 2);
 	EXPECT_EQ(string_results.size(), 2);
 	EXPECT_EQ(command_results.size(), 2);
+}
+
+TEST(TaskQueueTest, MultiTypeEmplaceInts) {
+	std::atomic<int> int_sum{0};
+	std::atomic<int> string_count{0};
+
+	{
+		ctq::task_queue<std::vector, int, std::string> queue(
+			{
+				[&int_sum](int n) { int_sum += n; },
+				[&string_count](std::string s) { string_count++; }
+			},
+			std::nullopt,
+			1
+		);
+
+		// Emplace int values
+		queue.emplace(10);
+		queue.emplace(20);
+		queue.emplace(30);
+
+		std::this_thread::sleep_for(std::chrono::milliseconds(100));
+	}
+
+	EXPECT_EQ(int_sum.load(), 60);
+	EXPECT_EQ(string_count.load(), 0);
+}
+
+TEST(TaskQueueTest, MultiTypeEmplaceStrings) {
+	std::atomic<int> int_count{0};
+	std::string string_result;
+	std::mutex string_mutex;
+
+	{
+		ctq::task_queue<std::vector, int, std::string> queue(
+			{
+				[&int_count](int n) { int_count++; },
+				[&string_result, &string_mutex](std::string s) {
+					std::lock_guard<std::mutex> lock(string_mutex);
+					string_result += s;
+				}
+			},
+			std::nullopt,
+			1
+		);
+
+		// Emplace string values - constructs std::string in place
+		queue.emplace("Hello");
+		queue.emplace(" ");
+		queue.emplace("World");
+
+		std::this_thread::sleep_for(std::chrono::milliseconds(100));
+	}
+
+	EXPECT_EQ(int_count.load(), 0);
+	EXPECT_EQ(string_result, "Hello World");
+}
+
+TEST(TaskQueueTest, MultiTypeEmplaceMixed) {
+	std::atomic<int> int_sum{0};
+	std::string string_result;
+	std::mutex string_mutex;
+
+	{
+		ctq::task_queue<std::vector, int, std::string> queue(
+			{
+				[&int_sum](int n) { int_sum += n; },
+				[&string_result, &string_mutex](std::string s) {
+					std::lock_guard<std::mutex> lock(string_mutex);
+					string_result += s;
+				}
+			},
+			std::nullopt,
+			1
+		);
+
+		// Mix emplace and push
+		queue.emplace(10);
+		queue.emplace("A");
+		queue.push(20);
+		queue.push(std::string("B"));
+		queue.emplace(30);
+		queue.emplace("C");
+
+		std::this_thread::sleep_for(std::chrono::milliseconds(100));
+	}
+
+	EXPECT_EQ(int_sum.load(), 60);
+	EXPECT_EQ(string_result, "ABC");
+}
+
+TEST(TaskQueueTest, MultiTypeEmplaceWithComplexType) {
+	struct Task {
+		int priority;
+		std::string description;
+
+		Task() = default;
+		Task(int p, std::string d) : priority(p), description(std::move(d)) {}
+	};
+
+	std::vector<int> int_results;
+	std::vector<Task> task_results;
+	std::mutex results_mutex;
+
+	{
+		ctq::task_queue<std::vector, int, Task> queue(
+			{
+				[&int_results, &results_mutex](int n) {
+					std::lock_guard<std::mutex> lock(results_mutex);
+					int_results.push_back(n);
+				},
+				[&task_results, &results_mutex](Task t) {
+					std::lock_guard<std::mutex> lock(results_mutex);
+					task_results.push_back(t);
+				}
+			},
+			std::nullopt,
+			1
+		);
+
+		// Emplace constructs Task in-place
+		queue.emplace(Task{1, "high priority"});
+		queue.emplace(100);
+		queue.emplace(Task{2, "medium priority"});
+		queue.emplace(200);
+
+		std::this_thread::sleep_for(std::chrono::milliseconds(100));
+	}
+
+	ASSERT_EQ(int_results.size(), 2);
+	ASSERT_EQ(task_results.size(), 2);
+	EXPECT_EQ(int_results[0], 100);
+	EXPECT_EQ(int_results[1], 200);
+	EXPECT_EQ(task_results[0].priority, 1);
+	EXPECT_EQ(task_results[0].description, "high priority");
+	EXPECT_EQ(task_results[1].priority, 2);
+	EXPECT_EQ(task_results[1].description, "medium priority");
 }
 
 // ============================================================================
