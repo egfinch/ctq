@@ -1,38 +1,79 @@
 # CTQ - Concurrent Task Queue
 
-A header-only C++20 library providing a flexible, compile-time task queue template that supports single or multiple message types with customizable container backends.
+Straightforward and flexible concurrent task queue library in modern >= C++20. It's thread-safe with support for single or multiple message types, customizable container backends, and configurable worker thread pools. It's header-only library.
 
 ## Overview
 
-CTQ provides a lightweight template-based task queue implementation that allows you to define queues with:
-- Custom container types (e.g., `std::vector`, `std::list`, `std::deque`)
-- Single or multiple message types
-- Zero runtime overhead through compile-time type resolution
-
-When a single type is specified, the queue uses that type directly. When multiple types are provided, the library automatically uses `std::variant` to support heterogeneous message types.
-
-## Features
-
-- **Header-only**: No compilation required, just include and use
-- **Type-safe**: Full compile-time type checking
-- **Flexible containers**: Works with any STL-compatible container template
-- **C++20**: Modern C++ standards and features
-- **Zero overhead**: Template metaprogramming resolves everything at compile time
+CTQ provides a lightweight concurrent task queue implementation that allows you to define queues with:
+- Custom container types (e.g., `std::vector`, `std::list`, custom `circular_buffer`)
+- Single or multiple message types using `std::variant`
+- Configurable number of worker threads
+- Optional queue size limits with blocking behavior
 
 ## Requirements
 
 - C++20 compatible compiler
 - CMake 3.15 or higher (for building tests)
+- Google Test (for running unit tests)
 
 ## Installation
 
-Since CTQ is header-only, simply copy the `include/ctq` directory to your project or add it to your include path:
+```bash
+git clone https://github.com/egfinch/ctq.git
+cd ctq
+mkdir build
+cd build
+cmake ..
+make install
+```
+
+Now you can include CTQ in your project by adding the following to you r CMakeLists.txt:
+
+```cmake
+find_package(ctq REQUIRED)
+target_link_libraries(your_target PRIVATE ctq::ctq)
+```
+
+Since CTQ is header-only, you can simply copy the `include/ctq` directory to your project or add it to your include path:
 
 ```bash
 cp -r include/ctq /path/to/your/project/include/
 ```
 
-Or use CMake to include it in your project.
+To build and run the tests, in the `build` (after running cmake, above) execute:
+
+```bash
+ctest
+```
+
+## Core Components
+
+### 1. `circular_buffer<T>`
+
+A simple circular buffer implementation with:
+- Fixed capacity
+- FIFO semantics
+- Methods: `push_back()`, `pop_front()`, `emplace_back()`
+- Additional `next()` method (pop and return)
+- `empty()`, `size()`, `capacity()`, and `front()` queries
+- Can be used as underlying container for `basic_task_queue`
+
+### 2. `basic_task_queue<Container>`
+
+The core task queue implementation that:
+- Manages a pool of worker threads using `std::jthread`
+- Processes items from the queue using a provided callback function
+- Supports optional maximum queue size with blocking behavior
+- Automatically stops workers on destruction
+
+### 3. `task_queue<Container, Ts...>`
+
+A high-level wrapper that:
+- Supports single or multiple message types
+- Uses `std::variant` for multiple types
+- Maps each type to its corresponding callback function
+- Provides a simple `push()` interface
+- Works with `std::vector`, `std::list`, `std::deque`, and `circular_buffer`
 
 ## Usage
 
@@ -41,12 +82,25 @@ Or use CMake to include it in your project.
 ```cpp
 #include "ctq/task_queue.h"
 #include <vector>
+#include <iostream>
 
-// Define a task queue that holds integers in a vector
-ctq::task_queue<std::vector, int> queue;
+int main() {
+    // Create a task queue with a single callback for integers
+    ctq::task_queue<std::vector, int> queue(
+        [](int n) {
+            std::cout << "Processing: " << n << std::endl;
+        },
+        2 // 2 worker threads
+    );
 
-// Access the message container type
-ctq::task_queue<std::vector, int>::Messages messages;
+    // Add tasks to the queue
+    queue.push(42);
+    queue.push(100);
+    queue.push(7);
+
+    // Workers process tasks in the background
+    // Queue destructor will wait for all tasks to complete
+}
 ```
 
 ### Multi-Type Queue with Variant
@@ -55,26 +109,110 @@ ctq::task_queue<std::vector, int>::Messages messages;
 #include "ctq/task_queue.h"
 #include <vector>
 #include <string>
+#include <iostream>
 
-// Define a task queue that can hold int, double, or string
-ctq::task_queue<std::vector, int, double, std::string> queue;
+int main() {
+    // Create a queue that handles multiple types
+    ctq::task_queue<std::vector, int, std::string, double> queue(
+        {
+            [](int n) { std::cout << "Int: " << n << std::endl; },
+            [](std::string s) { std::cout << "String: " << s << std::endl; },
+            [](double d) { std::cout << "Double: " << d << std::endl; }
+        },
+        std::nullopt, // No max size
+        3 // 3 worker threads
+    );
 
-// The underlying type is std::variant<int, double, std::string>
-// stored in a std::vector
+    queue.push(42);
+    queue.push(std::string("hello"));
+    queue.push(3.14);
+    queue.push(100);
+}
 ```
 
-### Using Different Containers
+### Bounded Queue with Size Limit
 
 ```cpp
 #include "ctq/task_queue.h"
+#include <vector>
+
+int main() {
+    // Create a queue with maximum 10 items
+    // Pushing to a full queue will block until space is available
+    ctq::task_queue<std::vector, int> queue(
+        [](int n) { /* process */ },
+        10, // max 10 items
+        2   // 2 workers
+    );
+
+    for (int i = 0; i < 100; ++i) {
+        queue.push(i); // May block if queue is full
+    }
+}
+```
+
+### Using basic_task_queue Directly
+
+```cpp
+#include "ctq/task_queue.h"
+#include <vector>
+
+int main() {
+    ctq::basic_task_queue<std::vector<int>> queue(
+        [](int item) {
+            // Process item
+        },
+        std::nullopt, // No max size
+        4 // 4 worker threads
+    );
+
+    queue.push(1);
+    queue.emplace(2);
+    queue.push(3);
+}
+```
+
+### Using Different Container Types
+
+The library supports multiple container types as the underlying queue storage:
+
+#### With std::list
+```cpp
+#include "ctq/task_queue.h"
 #include <list>
+
+ctq::task_queue<std::list, int> queue(
+    [](int n) { /* process */ },
+    2 // workers
+);
+
+queue.push(42);
+```
+
+#### With std::deque
+```cpp
+#include "ctq/task_queue.h"
 #include <deque>
 
-// Use std::list as the container
-ctq::task_queue<std::list, int> list_queue;
+ctq::task_queue<std::deque, int> queue(
+    [](int n) { /* process */ },
+    3 // workers
+);
 
-// Use std::deque as the container
-ctq::task_queue<std::deque, std::string> deque_queue;
+queue.push(42);
+```
+
+#### With circular_buffer
+```cpp
+#include "ctq/task_queue.h"
+
+ctq::basic_task_queue<ctq::circular_buffer<int>> queue(
+    [](int n) { /* process */ },
+    100, // circular_buffer capacity
+    2    // workers
+);
+
+queue.push(42);
 ```
 
 ## Building and Testing
@@ -85,9 +223,68 @@ The project uses CMake and Google Test for building and testing:
 mkdir build
 cd build
 cmake ..
-cmake --build .
-ctest
+make
 ```
+
+### Running Tests
+
+To run the comprehensive unit test suite:
+
+```bash
+cd build
+./ctq_test
+```
+
+Or using CTest:
+
+```bash
+cd build
+ctest --verbose
+```
+
+## Test Coverage
+
+The unit test suite (`test/ctq_test.cpp`) includes comprehensive tests for all components:
+
+### circular_buffer Tests (7 tests)
+- Constructor and capacity verification
+- `push_back()` and size tracking
+- `next()` method (pop and return)
+- `pop_front()` operation
+- Circular wrapping behavior
+- `emplace_back()` operation
+- Complex type support
+- `front()` method verification
+
+### basic_task_queue Tests (6 tests)
+- Basic callback execution
+- Multiple worker threads
+- Queue size constraints and blocking behavior
+- `emplace()` method
+- Processing order verification
+- Complex type handling
+
+### task_queue Tests (7 tests)
+- Single type queue operations
+- Multiple type queue with `std::variant`
+- Max element constraints
+- Multiple worker threads
+- Complex multi-type scenarios
+- Callback routing for different types
+
+### Container Type Tests
+- **std::list**: Basic operations, single/multi-type queues, bounded queues, complex types
+- **std::deque tests**: Basic operations, single/multi-type queues, bounded queues, order preservation
+- **circular_buffer tests**: Basic operations, multiple workers, bounded behavior, complex types, order preservation
+- **Cross-container tests**: Verification that all containers produce identical results
+
+The tests verify:
+- Thread safety with atomic counters and mutexes
+- Correct callback invocation
+- FIFO ordering (with single worker)
+- Concurrent processing with multiple workers
+- Blocking behavior on bounded queues
+- Proper cleanup on destruction
 
 ## Project Structure
 
@@ -95,46 +292,59 @@ ctest
 ctq/
 ├── include/
 │   └── ctq/
-│       └── task_queue.h    # Main header file
+│       ├── circular_buffer.h   # Circular buffer implementation
+│       └── task_queue.h        # Task queue implementations
 ├── test/
-│   └── ctq_test.cpp        # Unit tests
-├── CMakeLists.txt          # CMake configuration
-└── README.md               # This file
+│   └── ctq_test.cpp           # Comprehensive unit tests
+├── CMakeLists.txt             # CMake configuration
+└── README.md                  # This file
 ```
-
-## How It Works
-
-The library uses template metaprogramming to conditionally select the value type:
-
-- **Single type**: When only one type `T` is provided, the queue directly uses `T`
-- **Multiple types**: When multiple types are provided, the queue uses `std::variant<Ts...>`
-
-The `task_queue` template takes:
-1. A container template (e.g., `std::vector`, `std::list`)
-2. One or more value types
-
-The `Messages` type alias provides access to the fully instantiated container type.
 
 ## API Reference
 
+### `ctq::circular_buffer<T>`
+
+**Methods:**
+- `circular_buffer(size_t max_size)` - Constructor
+- `void push_back(T&& v)` - Add item to buffer
+- `void emplace_back(Args&&... args)` - Construct item in place
+- `T next()` - Get and remove front item
+- `void pop_front()` - Remove front item
+- `T front()` - Get front item without removing
+- `size_t size() const` - Get current size
+- `size_t capacity() const` - Get maximum capacity
+- `bool empty() const` - Check if empty
+
+**Note:** Can be used as a container for `basic_task_queue`
+
+### `ctq::basic_task_queue<Container>`
+
+**Constructor:**
+- `basic_task_queue(callback cb, std::optional<size_t> max_elements, size_t workers = 1)`
+
+**Methods:**
+- `void push(type item)` - Add item to queue (may block if bounded)
+- `void emplace(Args&&... args)` - Construct item in place
+- `void access_queue(std::function<void(queue&)> f)` - Thread-safe queue access
+
+**Supported Containers:**
+- `std::vector<T>`
+- `std::list<T>`
+- `std::deque<T>`
+- `ctq::circular_buffer<T>`
+- your custom container with required interface
+
 ### `ctq::task_queue<Container, Ts...>`
 
-Template parameters:
-- `Container`: A template template parameter for the container type (e.g., `std::vector`)
-- `Ts...`: Variadic list of types the queue can hold
+**Constructor (single type):**
+- `task_queue(callback cb, std::optional<size_t> max_elements, size_t workers = 1)`
 
-Type aliases:
-- `type`: The value type (`T` or `std::variant<Ts...>`)
-- `Messages`: The complete container type (`Container<type>`)
+**Methods:**
+- `void push(type item)` - Add item to queue
 
-## License
+## Thread Safety
 
-[Add your license information here]
+All queue operations are thread-safe:
+- Multiple producers can call `put()`/`push()` concurrently
+- Multiple workers process items concurrently
 
-## Contributing
-
-[Add contribution guidelines here]
-
-## Author
-
-[Add author information here]
