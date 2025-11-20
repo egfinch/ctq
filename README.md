@@ -48,7 +48,23 @@ ctest
 
 ## Core Components
 
-### 1. `circular_buffer<T>`
+### 1. `task_queue<Container, Ts...>`
+
+A high-level wrapper that:
+- Supports single or multiple message types
+- Uses `std::variant` for multiple types
+- Maps each type to its corresponding callback function
+- Provides a simple `push()` interface
+- Works with `std::vector`, `std::list`, `std::deque`, and `circular_buffer`
+
+**Supported Containers:**
+- `std::vector<T>`
+- `std::list<T>`
+- `std::deque<T>`
+- `ctq::circular_buffer<T>`
+- your custom container with required interface
+
+### 2. `circular_buffer<T>`
 
 A simple circular buffer implementation with:
 - Fixed capacity
@@ -58,22 +74,13 @@ A simple circular buffer implementation with:
 - `empty()`, `size()`, `capacity()`, and `front()` queries
 - Can be used as underlying container for `basic_task_queue`
 
-### 2. `basic_task_queue<Container>`
+### 3. `basic_task_queue<Container>`
 
-The core task queue implementation that:
+The core task queue implementation (used by `task_queue`):
 - Manages a pool of worker threads using `std::jthread`
 - Processes items from the queue using a provided callback function
 - Supports optional maximum queue size with blocking behavior
 - Automatically stops workers on destruction
-
-### 3. `task_queue<Container, Ts...>`
-
-A high-level wrapper that:
-- Supports single or multiple message types
-- Uses `std::variant` for multiple types
-- Maps each type to its corresponding callback function
-- Provides a simple `push()` interface
-- Works with `std::vector`, `std::list`, `std::deque`, and `circular_buffer`
 
 ## Usage
 
@@ -351,8 +358,11 @@ ctq/
 
 **Constructor:**
 - `task_queue(callbacks cb, std::optional<size_t> max_elements, size_t workers = 1)`
-Unbounded queue constructor:
-- `task_queue(callbacks cb, size_t workers = 1)`
+- `task_queue(callbacks cb, size_t workers = 1) //Unbounded queue constructor`
+
+**Note:** Unbounded queue constructor is equivalent to passing `std::nullopt` for `max_elements`
+**Note:** `callbacks` is `std::function<void(Ts)>...` for each type `Ts`
+
 
 **Methods:**
 - `void push(type item)` - Add item to queue
