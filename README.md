@@ -340,6 +340,25 @@ ctq/
 
 ## API Reference
 
+### `ctq::task_queue<Container, Ts...>`
+
+**Supported Containers:**
+- `std::vector<T>`
+- `std::list<T>`
+- `std::deque<T>`
+- `ctq::circular_buffer<T>`
+- your custom container with required interface
+
+**Constructor:**
+- `task_queue(callbacks cb, std::optional<size_t> max_elements, size_t workers = 1)`
+Unbounded queue constructor:
+- `task_queue(callbacks cb, size_t workers = 1)`
+
+**Methods:**
+- `void push(type item)` - Add item to queue
+- `void emplace(Args&&... args)` - Construct item in place
+- `void access_queue(std::function<void(queue&)> f)` - Thread-safe queue access
+
 ### `ctq::circular_buffer<T>`
 
 **Methods:**
@@ -353,7 +372,7 @@ ctq/
 - `size_t capacity() const` - Get maximum capacity
 - `bool empty() const` - Check if empty
 
-**Note:** Can be used as a container for `basic_task_queue`
+**Note:** Can be used as a container for `task_queue`
 
 ### `ctq::basic_task_queue<Container>`
 
@@ -362,23 +381,6 @@ ctq/
 
 **Methods:**
 - `void push(type item)` - Add item to queue (may block if bounded)
-- `void emplace(Args&&... args)` - Construct item in place
-- `void access_queue(std::function<void(queue&)> f)` - Thread-safe queue access
-
-**Supported Containers:**
-- `std::vector<T>`
-- `std::list<T>`
-- `std::deque<T>`
-- `ctq::circular_buffer<T>`
-- your custom container with required interface
-
-### `ctq::task_queue<Container, Ts...>`
-
-**Constructor (single type):**
-- `task_queue(callback cb, std::optional<size_t> max_elements, size_t workers = 1)`
-
-**Methods:**
-- `void push(type item)` - Add item to queue
 - `void emplace(Args&&... args)` - Construct item in place
 - `void access_queue(std::function<void(queue&)> f)` - Thread-safe queue access
 
