@@ -410,6 +410,30 @@ TEST(TaskQueueTest, SingleTypeEmplaceWithComplexType) {
 	EXPECT_EQ(contents[2], "third");
 }
 
+TEST(TaskQueueTest, AccessQueueMethod) {
+	std::atomic<int> counter{0};
+
+	ctq::task_queue<std::vector, int> queue(
+		[&counter](int n) {
+			counter++;
+			std::this_thread::sleep_for(std::chrono::milliseconds(50));
+		},
+		1
+	);
+
+	queue.push(1);
+	queue.push(2);
+	queue.push(3);
+
+	// Use access_queue to check the queue size
+	size_t queue_size = 0;
+	queue.access_queue([&queue_size](auto& q) {
+		queue_size = q.size();
+	});
+
+	EXPECT_GT(queue_size, 0);
+}
+
 // ============================================================================
 // task_queue Tests (Multiple Types with Variant)
 // ============================================================================

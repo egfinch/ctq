@@ -215,6 +215,44 @@ ctq::basic_task_queue<ctq::circular_buffer<int>> queue(
 queue.push(42);
 ```
 
+### Thread-Safe Queue Access with access_queue
+
+The `access_queue` method provides thread-safe access to the underlying queue container. This is useful when you need to inspect or manipulate the queue directly, such as checking its size, clearing it, or performing custom operations. The provided function is executed with the queue's internal mutex locked, ensuring thread safety.
+
+```cpp
+#include "ctq/task_queue.h"
+#include <vector>
+#include <iostream>
+
+int main() {
+    ctq::task_queue<std::vector, int> queue(
+        [](int n) {
+            // Process items slowly
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        },
+        2 // workers
+    );
+
+    // Add some items
+    for (int i = 0; i < 10; ++i) {
+        queue.push(i);
+    }
+
+    // Check queue size in a thread-safe way
+    queue.access_queue([](auto& q) {
+        std::cout << "Current queue size: " << q.size() << std::endl;
+    });
+
+    // Clear the queue if needed
+    queue.access_queue([](auto& q) {
+        q.clear();
+        std::cout << "Queue cleared. New size: " << q.size() << std::endl;
+    });
+}
+```
+
+**Important:** The function passed to `access_queue` should be quick to execute, as it holds the queue's mutex and blocks all queue operations while running.
+
 ## Building and Testing
 
 The project uses CMake and Google Test for building and testing:

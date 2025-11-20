@@ -112,6 +112,13 @@ struct task_queue {
 		basic_->emplace(std::forward<Args>(args)...);
 	}
 
+	/** This method provides access to the underlying queue. The provided function is executed 
+	 *  with a lock held on the queue to ensure thread safety.
+	 */
+	void access_queue(std::function<void(queue&)> f) {
+		basic_->access_queue(f);
+	}
+
 private:
 	std::unique_ptr<basic_task_queue<queue>> basic_;
 };
@@ -149,6 +156,13 @@ struct task_queue<Container, T> {
 	template<typename... Args>
 	void emplace(Args&&... args) {
 		basic_->emplace(std::forward<Args>(args)...);
+	}
+
+	/** This method provides access to the underlying queue. The provided function is executed 
+	 *  with a lock held on the queue to ensure thread safety.
+	 */
+	void access_queue(std::function<void(queue&)> f) {
+		basic_->access_queue(f);
 	}
 
 private:
@@ -238,7 +252,7 @@ struct basic_task_queue {
 	 *
 	 * @param f A function that takes a reference to the queue and performs operations on it.
 	 */
-	void acess_queue(std::function<void(queue&)> f) {
+	void access_queue(std::function<void(queue&)> f) {
 		std::unique_lock lock(mutex_);
 		f(q_);
 	}
