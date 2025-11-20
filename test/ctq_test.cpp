@@ -30,7 +30,7 @@ TEST(CircularBufferTest, PushAndSize) {
 	buf.push_back(20);
 	EXPECT_EQ(buf.size(), 2);
 
-	buf.push_back(30);
+	buf.push_back(40);
 	EXPECT_EQ(buf.size(), 3);
 }
 
