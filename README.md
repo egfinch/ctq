@@ -27,7 +27,7 @@ cmake ..
 make install
 ```
 
-Now you can include CTQ in your project by adding the following to you r CMakeLists.txt:
+Now you can include CTQ in your project by adding the following to your CMakeList.txt:
 
 ```cmake
 find_package(ctq REQUIRED)
