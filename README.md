@@ -379,6 +379,8 @@ ctq/
 
 **Methods:**
 - `void push(type item)` - Add item to queue
+- `void emplace(Args&&... args)` - Construct item in place
+- `void access_queue(std::function<void(queue&)> f)` - Thread-safe queue access
 
 ## Thread Safety
 
