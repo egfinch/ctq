@@ -134,7 +134,7 @@ int main() {
 
 ### Multi-Type Queue
 
-Used std::variant internally to handle multiple types with corresponding callbacks.
+Uses `std::variant` internally to handle multiple types with corresponding callbacks.
 
 ```cpp
 #include "ctq/task_queue.h"
