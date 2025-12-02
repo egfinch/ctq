@@ -48,7 +48,7 @@ int main() {
             [](double d) { std::cout << "Double: " << d << std::endl; }
         },
         std::nullopt, // No max size
-        3 // three worker threads
+        2 // two worker threads
     );
 
     queue.push(42);
@@ -56,7 +56,12 @@ int main() {
     queue.push(3.14);
     queue.push(100);
 
-    ... // Workers process tasks in the background
+    ... // Workers process the queue in the background
+        // As a worker thread (std::jthread) becomes available,
+        // it picks the next item from the queue and invokes 
+        // the corresponding callback based on the item type.
+        //
+        // The queue destructor will join all threads automatically.
 }
 ```
 
