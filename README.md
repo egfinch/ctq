@@ -27,7 +27,7 @@ Straightforward and flexible concurrent task queue library in modern >= C++20. I
 
 CTQ provides a lightweight concurrent task queue implementation that allows you to define queues with:
 - Custom container types (e.g., `std::vector`, `std::list`, custom `circular_buffer`)
-- Single or multiple message types using `std::variant`
+- Single or multiple message types with type-safe dispatching to corresponding tasks (callbacks)
 - Configurable number of worker threads
 - Optional queue size limits with blocking behavior
 
