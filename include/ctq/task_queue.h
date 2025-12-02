@@ -8,8 +8,6 @@
 #include <functional>
 #include <optional>
 #include <vector>
-#include <list>
-#include <deque>
 #include <thread>
 #include <utility>
 
@@ -17,8 +15,15 @@
 
 namespace ctq {
 
+	// Helper namespace for internal implementations
 namespace detail {
 
+	/** @brief This is helper type, an adapter to provide a uniform interface for different container types
+	 * This struct template adapts different container types to provide a uniform interface
+	 * for use in the task queue implementation. It adds support for maximum size and pop_front operation
+	 * where applicable.
+	 * @tparam Container The type of the underlying container.
+	 */
 template<typename Container>
 struct queue_adapter : Container{
 	std::optional<size_t> max_elements_;
@@ -85,6 +90,15 @@ struct task_queue {
     using queue = Container<type>;
 	using callbacks = std::tuple<std::function<void(Ts)>...>;
 
+	/** @brief Constructor for task_queue
+	 *
+	 * This constructor initializes the task queue with a set of callbacks for each type
+	 * and optional maximum elements and number of worker threads.
+	 *
+	 * @param cb A tuple of callback functions, one for each type in Ts.
+	 * @param max_elements An optional maximum number of elements in the queue.
+	 * @param workers The number of worker threads to process the queue.
+	 */
 	task_queue(callbacks cb, std::optional<size_t> max_elements, size_t workers = 1)
 	{
 		basic_ = std::make_unique<basic_task_queue<queue>>(
@@ -103,10 +117,17 @@ struct task_queue {
 
 	~task_queue() = default;
 
+	/** @brief Add an item to the task queue
+	 *
+	 * This method adds an item to the task queue.
+	 *
+	 * @param item The item to be added to the queue.
+	 */
 	void push(type item) {
 		basic_->push(std::move(item));
 	}
 
+	/** @brief Emplace an item into the task queue. Same as push but constructs in place. */
 	template<typename... Args>
 	void emplace(Args&&... args) {
 		basic_->emplace(std::forward<Args>(args)...);

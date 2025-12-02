@@ -2,6 +2,27 @@
 
 Straightforward and flexible concurrent task queue library in modern >= C++20. It's thread-safe with support for single or multiple message types, customizable container backends, and configurable worker thread pools. It's header-only library.
 
+## Table of Contents
+
+- [Overview](#overview)
+- [Requirements](#requirements)
+- [Installation](#installation)
+- [Core Components](#core-components)
+  - [1. task_queue](#1-task_queuecontainer-ts)
+  - [2. circular_buffer](#2-circular_buffert)
+  - [3. basic_task_queue](#3-basic_task_queuecontainer)
+- [Usage](#usage)
+  - [Basic Example - Single Type Queue](#basic-example---single-type-queue)
+  - [Multi-Type Queue with Variant](#multi-type-queue-with-variant)
+  - [Bounded Queue with Size Limit](#bounded-queue-with-size-limit)
+  - [Using basic_task_queue Directly](#using-basic_task_queue-directly)
+  - [Using Different Container Types](#using-different-container-types)
+  - [Thread-Safe Queue Access with access_queue](#thread-safe-queue-access-with-access_queue)
+- [Test Coverage](#test-coverage)
+- [Project Structure](#project-structure)
+- [API Reference](#api-reference)
+- [Thread Safety](#thread-safety)
+
 ## Overview
 
 CTQ provides a lightweight concurrent task queue implementation that allows you to define queues with:
@@ -43,7 +64,8 @@ cp -r include/ctq /path/to/your/project/include/
 To build and run the tests, in the `build` (after running cmake, above) execute:
 
 ```bash
-ctest
+make ctq_test
+./ctq_test
 ```
 
 ## Core Components
@@ -259,33 +281,6 @@ int main() {
 ```
 
 **Important:** The function passed to `access_queue` should be quick to execute, as it holds the queue's mutex and blocks all queue operations while running.
-
-## Building and Testing
-
-The project uses CMake and Google Test for building and testing:
-
-```bash
-mkdir build
-cd build
-cmake ..
-make
-```
-
-### Running Tests
-
-To run the comprehensive unit test suite:
-
-```bash
-cd build
-./ctq_test
-```
-
-Or using CTest:
-
-```bash
-cd build
-ctest --verbose
-```
 
 ## Test Coverage
 
