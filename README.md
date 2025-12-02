@@ -31,6 +31,35 @@ CTQ provides a lightweight concurrent task queue implementation that allows you 
 - Configurable number of worker threads
 - Optional queue size limits with blocking behavior
 
+
+```cpp
+#include "ctq/task_queue.h"
+#include <vector>
+#include <string>
+#include <iostream>
+
+int main() {
+    // Create a queue that handles multiple types
+    // with callbacks for each type
+    ctq::task_queue<std::vector, int, std::string, double> queue(
+        {
+            [](int n) { std::cout << "Int: " << n << std::endl; },
+            [](std::string s) { std::cout << "String: " << s << std::endl; },
+            [](double d) { std::cout << "Double: " << d << std::endl; }
+        },
+        std::nullopt, // No max size
+        3 // three worker threads
+    );
+
+    queue.push(42);
+    queue.push(std::string("hello"));
+    queue.push(3.14);
+    queue.push(100);
+
+    ... // Workers process tasks in the background
+}
+```
+
 ## Requirements
 
 - C++20 compatible compiler
