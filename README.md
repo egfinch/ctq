@@ -72,9 +72,9 @@ make ctq_test
 
 ### 1. `task_queue<Container, Ts...>`
 
-A high-level wrapper that:
+A simple high-level wrapper that:
 - Supports single or multiple message types
-- Uses `std::variant` for multiple types
+- Uses `std::variant` internally for multi-type support
 - Maps each type to its corresponding callback function
 - Provides a simple `push()` interface
 - Works with `std::vector`, `std::list`, `std::deque`, and `circular_buffer`
@@ -102,7 +102,7 @@ The core task queue implementation (used by `task_queue`):
 - Manages a pool of worker threads using `std::jthread`
 - Processes items from the queue using a provided callback function
 - Supports optional maximum queue size with blocking behavior
-- Automatically stops workers on destruction
+- RAII, automatically stops workers on destruction
 
 ## Usage
 
