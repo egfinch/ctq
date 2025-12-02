@@ -13,7 +13,7 @@ Straightforward and flexible concurrent task queue library in modern >= C++20. I
   - [3. basic_task_queue](#3-basic_task_queuecontainer)
 - [Usage](#usage)
   - [Basic Example - Single Type Queue](#basic-example---single-type-queue)
-  - [Multi-Type Queue with Variant](#multi-type-queue-with-variant)
+  - [Multi-Type Queue](#multi-type-queue-with-variant)
   - [Bounded Queue with Size Limit](#bounded-queue-with-size-limit)
   - [Using basic_task_queue Directly](#using-basic_task_queue-directly)
   - [Using Different Container Types](#using-different-container-types)
@@ -132,7 +132,9 @@ int main() {
 }
 ```
 
-### Multi-Type Queue with Variant
+### Multi-Type Queue
+
+Used std::variant internally to handle multiple types with corresponding callbacks.
 
 ```cpp
 #include "ctq/task_queue.h"
